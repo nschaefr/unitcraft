@@ -1,6 +1,10 @@
 import os
+import re
 
 working_dir = os.getcwd()
+
+RESET = '\033[0m'
+BLUE = '\033[94m'
 
 
 def find_java_files():
@@ -27,7 +31,6 @@ def create_test_file(file_path, response):
     os.makedirs(target_dir, exist_ok=True)
     test_file = os.path.splitext(os.path.basename(file_path))[0] + "Test.java"
     test_file_path = os.path.join(target_dir, test_file)
-    print(f"Generated {test_file}")
     with open(test_file_path, 'w') as file:
         file.write(response)
     return test_file_path
@@ -36,7 +39,16 @@ def create_test_file(file_path, response):
 def update_test_file(file_path, corrected_test_code):
     with open(file_path, 'w') as file:
         file.write(corrected_test_code)
-        print(f"Generated new {os.path.basename(file_path)}")
+
+
+def delete_test(file_path, test):
+    with open(file_path, 'r') as file:
+        code = file.read()
+    pattern = re.compile(r'@Test\s*.*?(\b' + re.escape(test) + r'\b.*?){.*?}(?=\s*@|$)', re.DOTALL)
+    modified_code = pattern.sub('', code)
+
+    with open(file_path, 'w') as file:
+        file.write(modified_code)
 
 
 def delete_java_file(file_path):
