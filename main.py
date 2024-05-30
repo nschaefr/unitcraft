@@ -19,7 +19,7 @@ def main():
     total_minutes = int(total_time_seconds // 60)
     total_seconds = int(total_time_seconds % 60)
 
-    print(f"\nTotal Generation-Time: {total_minutes:02d}:{total_seconds:02d}")
+    print(f"\nTotal Generation-Time: {total_minutes:02d}:{total_seconds:02d}m")
 
 
 if __name__ == "__main__":

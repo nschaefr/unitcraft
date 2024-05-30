@@ -10,10 +10,16 @@ BLUE = '\033[94m'
 RESET = '\033[0m'
 
 PROMPT_WITH_ERROR = (
-    "Fix the errors caused by the Test Class. Use Reflection for private access. Check if imports or packages "
-    "are missing. \n\nJava Class:\n\n###{"
+    "\n\nJava Class:\n\n###{"
     "}###\n\nUnit test:\n\n###{"
     "}###\n\nError:\n\n###{}###")
+
+PROMPT_WITH_DEL = (
+    "Delete the tests that causing the error."
+    "a\n\nJava Class:\n\n###{"
+    "}###\n\nUnit test:\n\n###{"
+    "}###\n\nError:\n\n###{}###"
+)
 
 
 def verify_test(java_class, test_code, test_path, attempt=1, succ=0,
@@ -48,17 +54,22 @@ def run_maven_test(file_name, attempt, succ, succ_rev):
 
 def handle_error(err, test_code, java_class, test_path, attempt, succ,
                  succ_rev, fail):
-    from utils.llm import prompt_openai
+    from utils.llm import prompt_openai_corr
 
-    if attempt > 3:
-        fail += 1
-        print(f"{BOLD}Maximum number of attempts exceeded, test not compilable and will be deleted.\n{RESET}")
-        delete_java_file(test_path)
-        return succ, succ_rev, fail
+    if attempt > 2:
+        if attempt > 3:
+            fail += 1
+            print(f"{BOLD}Test class not compilable and will be deleted.\n{RESET}")
+            delete_java_file(test_path)
+            return succ, succ_rev, fail
+        prompt_with_del = PROMPT_WITH_DEL.format(java_class, test_code, err)
+        corrected_test_code = prompt_openai_corr(prompt_with_del)
+        update_test_file(test_path, corrected_test_code)
+        return verify_test(java_class, corrected_test_code, test_path, attempt + 1)
 
     print(f"{RESET}{BLUE}TEST REVISION {attempt}/3")
     prompt_with_error = PROMPT_WITH_ERROR.format(java_class, test_code, err)
-    corrected_test_code = prompt_openai(prompt_with_error)
+    corrected_test_code = prompt_openai_corr(prompt_with_error)
 
     update_test_file(test_path, corrected_test_code)
     return verify_test(java_class, corrected_test_code, test_path, attempt + 1)

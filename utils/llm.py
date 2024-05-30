@@ -31,15 +31,17 @@ def generate_test_code(prompt, java_file, java_class):
     return verify_test(java_class, test_code, test_path)
 
 
-def remove_markdown_code_block(code):
+def remove_format_code_block(code):
     if code.startswith("```java") and code.endswith("```"):
+        return "\n".join(code.split("\n")[1:-1])
+    if code.startswith("###") and code.endswith("###"):
         return "\n".join(code.split("\n")[1:-1])
     return code
 
 
 def prompt_openai(prompt):
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo-0125",
         messages=[
             {
                 "role": "system",
@@ -47,7 +49,9 @@ def prompt_openai(prompt):
                     {
                         "type": "text",
                         "text": "You will be provided with a java class and your task is to create a test class with "
-                                "unit tests using JUnit5. Return code only without any text descriptions."
+                                "unit tests that are testing the functionality using JUnit5. Your goal is maximum "
+                                "test coverage. You are not allowed to write comments in the code. Return the full "
+                                "code only."
                     }
                 ]
             },
@@ -65,7 +69,40 @@ def prompt_openai(prompt):
         max_tokens=2500
     )
     test_code = response.choices[0].message.content
-    return remove_markdown_code_block(test_code)
+    return remove_format_code_block(test_code)
+
+
+def prompt_openai_corr(prompt_corr):
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo-0125",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "You will be provided with a java class, a test class and an error and your task is "
+                                "to repair the unit tests that are causing th error. You are not allowed to write "
+                                "comments. Return the full code only. Use Reflection for private access errors and "
+                                "check for missing imports or packages."
+                    }
+                ]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt_corr
+                    }
+                ]
+            }
+        ],
+        temperature=0.3,
+        max_tokens=2000
+    )
+    test_code = response.choices[0].message.content
+    return remove_format_code_block(test_code)
 
 
 def generate_unit_tests(prompt_type):
