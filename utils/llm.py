@@ -1,130 +1,98 @@
+import logging
 import os
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from utils.constants import prompt_templates, system_text, system_text_corr
 from utils.data_handler import find_java_files, create_test_file, read_java_file
-from utils.verify import verify_test
+from utils.test_utils import verify_test
 
 load_dotenv()
 key = os.getenv("OPEN_API_KEY")
 client = OpenAI(api_key=key)
 
-SUCCESS = '\033[92m'
-FAIL = '\033[91m'
-BLUE = '\033[94m'
-BOLD = '\033[1m'
-RESET = '\033[0m'
-
-ZERO_SHOT_PROMPT = "Java Class:\n\n###{}###\n\nUnit tests:\n"
-ONE_SHOT_PROMPT = "Java Class:\n\n###{}###\n\nUnit tests:\n"
-
-prompt_templates = {
-    "zero": ZERO_SHOT_PROMPT,
-    "one": ONE_SHOT_PROMPT
-}
+logger = logging.getLogger()
 
 
-def generate_test_code(prompt, java_file, java_class):
-    test_code = prompt_openai(prompt)
+class TestStats:
+    def __init__(self, total_tests=0, succ_tests=0, succ_classes=0, succ_rev_classes=0, fail_classes=0):
+        self.total_tests = total_tests
+        self.succ_tests = succ_tests
+        self.succ_classes = succ_classes
+        self.succ_rev_classes = succ_rev_classes
+        self.fail_classes = fail_classes
+
+
+def prompt_openai(prompt, model):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo-0125",
+            messages=[
+                {"role": "system", "content": [{"type": "text", "text": system_text}]},
+                {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            ],
+            temperature=0.1,
+            max_tokens=2500
+        )
+        test_code = response.choices[0].message.content
+        return remove_format(test_code)
+    except Exception as e:
+        logger.error(f"Error while generating test code: {e}")
+        return None
+
+
+def prompt_openai_corr(prompt_corr, model):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo-0125",
+            messages=[
+                {"role": "system", "content": [{"type": "text", "text": system_text_corr}]},
+                {"role": "user", "content": [{"type": "text", "text": prompt_corr}]}
+            ],
+            temperature=0.1,
+            max_tokens=2500
+        )
+        test_code = response.choices[0].message.content
+        return remove_format(test_code)
+    except Exception as e:
+        logger.error(f"Error while correcting test code: {e}")
+        return None
+
+
+def generate_test_code(prompt, java_file, java_class, stats, model):
+    test_code = prompt_openai(prompt, model)
     test_path = create_test_file(java_file, test_code)
-    return verify_test(java_class, test_code, test_path)
+    return verify_test(java_class, test_code, test_path, stats, model)
 
 
-def remove_format_code_block(code):
-    if code.startswith("```java") and code.endswith("```"):
-        return "\n".join(code.split("\n")[1:-1])
-    if code.startswith("###") and code.endswith("###"):
-        return "\n".join(code.split("\n")[1:-1])
-    return code
+def remove_format(test_code):
+    if test_code.startswith("```java") and test_code.endswith("```"):
+        return "\n".join(test_code.split("\n")[1:-1])
+    if test_code.startswith("###") and test_code.endswith("###"):
+        return "\n".join(test_code.split("\n")[1:-1])
+    return test_code
 
 
-def prompt_openai(prompt):
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo-0125",
-        messages=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "You will be provided with a java class and your task is to create a test class with "
-                                "unit tests that are testing the functionality using JUnit5. Your goal is maximum "
-                                "test coverage. You are not allowed to write comments in the code. Return the full "
-                                "code only."
-                    }
-                ]
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    }
-                ]
-            }
-        ],
-        temperature=0.1,
-        max_tokens=2500
-    )
-    test_code = response.choices[0].message.content
-    return remove_format_code_block(test_code)
-
-
-def prompt_openai_corr(prompt_corr):
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo-0125",
-        messages=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "You will be provided with a java class, a test class and an error and your task is "
-                                "to repair the unit tests that are causing th error. You are not allowed to write "
-                                "comments. Return the full code only. Use Reflection for private access errors and "
-                                "check for missing imports or packages."
-                    }
-                ]
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt_corr
-                    }
-                ]
-            }
-        ],
-        temperature=0.3,
-        max_tokens=2000
-    )
-    test_code = response.choices[0].message.content
-    return remove_format_code_block(test_code)
-
-
-def generate_unit_tests(prompt_type):
+def generate_unit_tests(prompt_type, model):
     java_files = find_java_files()
     prompt_template = prompt_templates.get(prompt_type)
-    succ, succ_rev, fail, = 0, 0, 0
+    stats = TestStats()
 
     if java_files:
         for java_file in java_files:
             java_class = read_java_file(java_file)
             prompt = prompt_template.format(java_class)
-            success, successful_rev, failed = generate_test_code(prompt, java_file,
-                                                                 java_class)
-            succ += success
-            succ_rev += successful_rev
-            fail += failed
+            stats = generate_test_code(prompt, java_file, java_class, stats, model)
     else:
-        print("No java files found.")
+        logger.warning("No java files found.")
 
-    print(f"\n\n{BOLD}STATISTICS:\n")
-    print(f"{RESET}TOTAL TEST CLASSES GENERATED: {succ + succ_rev + fail}")
-    print(
-        f"{SUCCESS}SUCCESSFUL COMPILATIONS: {succ + succ_rev}\n{RESET}\t-- FIRST TIME: "
-        f"{succ}\n{RESET}\t-- AFTER "
-        f"REVISION: {succ_rev}\n{FAIL}FAILED: {fail}")
+    print(f"\n\nSTATISTICS:\n\n"
+          f"TEST CLASSES GENERATED: {stats.succ_classes + stats.succ_rev_classes + stats.fail_classes}\n"
+          f"SUCCESSFUL COMPILATIONS: {stats.succ_classes + stats.succ_rev_classes}\n"
+          f"\t-- FIRST TIME: {stats.succ_classes}\n"
+          f"\t-- AFTER REVISION: {stats.succ_rev_classes}\n"
+          f"FAILED: {stats.fail_classes}\n\n"
+          f"TESTS GENERATED: {stats.total_tests}\n"
+          f"COMPILABLE TESTS: {stats.succ_tests}\n"
+          f"DELETED TESTS: {stats.total_tests - stats.succ_tests}\n")
