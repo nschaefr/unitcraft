@@ -27,7 +27,7 @@ class TestStats:
 def prompt_openai(prompt, model):
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",
+            model=model,
             messages=[
                 {"role": "system", "content": [{"type": "text", "text": system_text}]},
                 {"role": "user", "content": [{"type": "text", "text": prompt}]}
@@ -45,7 +45,7 @@ def prompt_openai(prompt, model):
 def prompt_openai_corr(prompt_corr, model):
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo-0125",
+            model=model,
             messages=[
                 {"role": "system", "content": [{"type": "text", "text": system_text_corr}]},
                 {"role": "user", "content": [{"type": "text", "text": prompt_corr}]}

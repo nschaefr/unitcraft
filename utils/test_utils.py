@@ -17,7 +17,8 @@ def extract_tests(test_class):
 
 def run_maven_test(file_name, attempt, stats, tests):
     try:
-        result = subprocess.run(["mvn", "--quiet", "-Dtest=" + file_name, "test-compile"], capture_output=True,
+        result = subprocess.run(["mvn", "--quiet", "-Dtest=" + file_name, "test-compile"],
+                                capture_output=True,
                                 text=True)
         if result.returncode == 0:
             if attempt == 1:
@@ -49,17 +50,17 @@ def handle_error(err, test_class, java_class, test_path, attempt, stats, model):
             delete_java_file(test_path)
             return stats
         prompt_del = PROMPT_DEL.format(java_class, test_class, err)
-        logger.error("Deleted tests that causing compilation error.")
+        logger.error("Deleting tests that causing compilation error...")
         corr_class = prompt_openai_corr(prompt_del, model)
         update_test_file(test_path, corr_class)
-        return verify_test(java_class, corr_class, test_path, stats, attempt + 1)
+        return verify_test(java_class, corr_class, test_path, stats, model, attempt + 1)
 
     logger.info(f"TEST REVISION {attempt}/3")
     prompt_error = PROMPT_ERROR.format(java_class, test_class, err)
     corr_class = prompt_openai_corr(prompt_error, model)
 
     update_test_file(test_path, corr_class)
-    return verify_test(java_class, corr_class, test_path, stats, attempt + 1)
+    return verify_test(java_class, corr_class, test_path, stats, model, attempt + 1)
 
 
 def verify_test(java_class, test_class, test_path, stats, model, attempt=1):

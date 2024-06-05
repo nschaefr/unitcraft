@@ -7,8 +7,8 @@ prompt_templates = {
 }
 
 system_text = ("You will be provided with a java class and your task is to create a test class with unit tests that "
-               "are testing the functionality using JUnit5. Your goal is maximum test coverage. You are not allowed "
-               "to write comments in the code. Return the full code only.")
+               "are testing the functionality using JUnit5. Your goal is maximum test "
+               "coverage. You are not allowed to write comments in the code. Return the full code only.")
 
 system_text_corr = ("You will be provided with a java class, a test class and an error and your task is to repair the "
                     "unit tests that are causing the error. You are not allowed to write comments. Return the full "
