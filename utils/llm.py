@@ -1,11 +1,13 @@
 import logging
 import os
+import re
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from utils.constants import prompt_templates, system_text, system_text_corr
+from utils.constants import system_text, prompt_templates
 from utils.data_handler import find_java_files, create_test_file, read_java_file
+from utils.java_class_extractor import JavaClassExtractor
 from utils.test_utils import verify_test
 
 load_dotenv()
@@ -24,16 +26,16 @@ class TestStats:
         self.fail_classes = fail_classes
 
 
-def prompt_openai(prompt, model):
+def prompt_openai(prompt, model, system):
     try:
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": [{"type": "text", "text": system_text}]},
+                {"role": "system", "content": [{"type": "text", "text": system}]},
                 {"role": "user", "content": [{"type": "text", "text": prompt}]}
             ],
             temperature=0.1,
-            max_tokens=2500
+            max_tokens=4096
         )
         test_code = response.choices[0].message.content
         return remove_format(test_code)
@@ -42,28 +44,45 @@ def prompt_openai(prompt, model):
         return None
 
 
-def prompt_openai_corr(prompt_corr, model):
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": [{"type": "text", "text": system_text_corr}]},
-                {"role": "user", "content": [{"type": "text", "text": prompt_corr}]}
-            ],
-            temperature=0.1,
-            max_tokens=2500
+def generate_test_code(java_file, java_class, stats, model, prompt_type):
+    extractor = JavaClassExtractor(java_class)
+
+    package = extractor.get_package()
+    imports = extractor.get_imports()
+    class_name = extractor.get_class_name()
+    constructor = extractor.get_constructor()
+    methods = extractor.get_methods()
+
+    for method in methods:
+        method_name = re.search(r'([a-zA-Z0-9_]+)\s*\(', method).group(1)
+        capitalized_method_name = method_name[0].upper() + method_name[1:]
+
+        # Create the test file name
+        test_file_name = f"{class_name}{capitalized_method_name}Test.java"
+        test_class_name = f"{class_name}{capitalized_method_name}Test"
+
+        print(class_name, method_name)
+
+        prompt = prompt_templates[prompt_type].format(
+            method_name,
+            package,
+            ', '.join(imports),
+            class_name,
+            constructor,
+            method,
+            test_class_name
         )
-        test_code = response.choices[0].message.content
-        return remove_format(test_code)
-    except Exception as e:
-        logger.error(f"Error while correcting test code: {e}")
-        return None
 
+        # Generate test code using the prompt
+        test_code = prompt_openai(prompt, model, system_text)
 
-def generate_test_code(prompt, java_file, java_class, stats, model):
-    test_code = prompt_openai(prompt, model)
-    test_path = create_test_file(java_file, test_code)
-    return verify_test(java_class, test_code, test_path, stats, model)
+        # Write the test code to the file
+        test_path = create_test_file(java_file, test_file_name, test_code)
+
+        # Verify the test
+        stats = verify_test(test_code, test_path, stats, model)
+
+    return stats
 
 
 def remove_format(test_code):
@@ -76,14 +95,12 @@ def remove_format(test_code):
 
 def generate_unit_tests(prompt_type, model):
     java_files = find_java_files()
-    prompt_template = prompt_templates.get(prompt_type)
     stats = TestStats()
 
     if java_files:
         for java_file in java_files:
             java_class = read_java_file(java_file)
-            prompt = prompt_template.format(java_class)
-            stats = generate_test_code(prompt, java_file, java_class, stats, model)
+            stats = generate_test_code(java_file, java_class, stats, model, prompt_type)
     else:
         logger.warning("No java files found.")
 
