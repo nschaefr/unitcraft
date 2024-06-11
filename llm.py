@@ -8,7 +8,7 @@ from openai import OpenAI
 from utils.constants import system_text, prompt_templates
 from utils.data_handler import find_java_files, create_test_file, read_java_file
 from utils.java_class_extractor import JavaClassExtractor
-from utils.test_utils import verify_test
+from utils.test_validator import validate_test
 
 load_dotenv()
 key = os.getenv("OPEN_API_KEY")
@@ -18,7 +18,15 @@ logger = logging.getLogger()
 
 
 class TestStats:
-    def __init__(self, total_tests=0, succ_tests=0, succ_classes=0, succ_rev_classes=0, fail_classes=0):
+
+    def __init__(
+        self,
+        total_tests=0,
+        succ_tests=0,
+        succ_classes=0,
+        succ_rev_classes=0,
+        fail_classes=0,
+    ):
         self.total_tests = total_tests
         self.succ_tests = succ_tests
         self.succ_classes = succ_classes
@@ -32,10 +40,10 @@ def prompt_openai(prompt, model, system):
             model=model,
             messages=[
                 {"role": "system", "content": [{"type": "text", "text": system}]},
-                {"role": "user", "content": [{"type": "text", "text": prompt}]}
+                {"role": "user", "content": [{"type": "text", "text": prompt}]},
             ],
             temperature=0.1,
-            max_tokens=4096
+            max_tokens=4096,
         )
         test_code = response.choices[0].message.content
         return remove_format(test_code)
@@ -54,7 +62,7 @@ def generate_test_code(java_file, java_class, stats, model, prompt_type):
     methods = extractor.get_methods()
 
     for method in methods:
-        method_name = re.search(r'([a-zA-Z0-9_]+)\s*\(', method).group(1)
+        method_name = re.search(r"([a-zA-Z0-9_]+)\s*\(", method).group(1)
         capitalized_method_name = method_name[0].upper() + method_name[1:]
 
         # Create the test file name
@@ -66,11 +74,11 @@ def generate_test_code(java_file, java_class, stats, model, prompt_type):
         prompt = prompt_templates[prompt_type].format(
             method_name,
             package,
-            ', '.join(imports),
+            ", ".join(imports),
             class_name,
             constructor,
             method,
-            test_class_name
+            test_class_name,
         )
 
         # Generate test code using the prompt
@@ -80,17 +88,17 @@ def generate_test_code(java_file, java_class, stats, model, prompt_type):
         test_path = create_test_file(java_file, test_file_name, test_code)
 
         # Verify the test
-        stats = verify_test(test_code, test_path, stats, model)
+        stats = validate_test(test_code, test_path, stats, model)
 
     return stats
 
 
 def remove_format(test_code):
-    if test_code.startswith("```java") and test_code.endswith("```"):
-        return "\n".join(test_code.split("\n")[1:-1])
-    if test_code.startswith("###") and test_code.endswith("###"):
-        return "\n".join(test_code.split("\n")[1:-1])
-    return test_code
+    pattern = r"```java(.*?)```"
+    match = re.search(pattern, test_code, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return test_code.strip()
 
 
 def generate_unit_tests(prompt_type, model):
@@ -104,12 +112,14 @@ def generate_unit_tests(prompt_type, model):
     else:
         logger.warning("No java files found.")
 
-    print(f"\n\nSTATISTICS:\n\n"
-          f"TEST CLASSES GENERATED: {stats.succ_classes + stats.succ_rev_classes + stats.fail_classes}\n"
-          f"SUCCESSFUL COMPILATIONS: {stats.succ_classes + stats.succ_rev_classes}\n"
-          f"\t-- FIRST TIME: {stats.succ_classes}\n"
-          f"\t-- AFTER REVISION: {stats.succ_rev_classes}\n"
-          f"FAILED: {stats.fail_classes}\n\n"
-          f"TESTS GENERATED: {stats.total_tests}\n"
-          f"COMPILABLE TESTS: {stats.succ_tests}\n"
-          f"DELETED TESTS: {stats.total_tests - stats.succ_tests}\n")
+    print(
+        f"\n\nSTATISTICS:\n\n"
+        f"TEST CLASSES GENERATED: {stats.succ_classes + stats.succ_rev_classes + stats.fail_classes}\n"
+        f"SUCCESSFUL COMPILATIONS: {stats.succ_classes + stats.succ_rev_classes}\n"
+        f"\t-- FIRST TIME: {stats.succ_classes}\n"
+        f"\t-- AFTER REVISION: {stats.succ_rev_classes}\n"
+        f"FAILED: {stats.fail_classes}\n\n"
+        f"TESTS GENERATED: {stats.total_tests}\n"
+        f"COMPILABLE TESTS: {stats.succ_tests}\n"
+        f"DELETED TESTS: {stats.total_tests - stats.succ_tests}\n"
+    )

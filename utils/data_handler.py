@@ -18,7 +18,7 @@ def find_java_files():
 
 def read_java_file(file_path):
     try:
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             return file.read()
     except FileNotFoundError:
         logger.error(f"File not found: {file_path}")
@@ -32,12 +32,14 @@ def create_test_file(file_path, file_name, response):
     try:
         os.makedirs(os.path.join(working_dir, "src", "test"), exist_ok=True)
         test_file_dir = os.path.join(working_dir, "src", "test")
-        relative_path = os.path.relpath(os.path.dirname(file_path), os.path.join(working_dir, "src", "main"))
+        relative_path = os.path.relpath(
+            os.path.dirname(file_path), os.path.join(working_dir, "src", "main")
+        )
         relative_path = relative_path.replace("..", "").lstrip(os.sep)
         target_dir = os.path.join(test_file_dir, relative_path)
         os.makedirs(target_dir, exist_ok=True)
         test_file_path = os.path.join(target_dir, file_name)
-        with open(test_file_path, 'w') as file:
+        with open(test_file_path, "w") as file:
             file.write(response)
         return test_file_path
     except Exception as e:
@@ -47,7 +49,7 @@ def create_test_file(file_path, file_name, response):
 
 def update_test_file(file_path, corrected_test_code):
     try:
-        with open(file_path, 'w') as file:
+        with open(file_path, "w") as file:
             file.write(corrected_test_code)
     except Exception as e:
         logger.error(f"Error while updating test file: {e}")

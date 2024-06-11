@@ -3,8 +3,8 @@ import time
 
 import inquirer
 
-from utils.llm import generate_unit_tests
-from utils.logging_config import setup_logging
+from llm import generate_unit_tests
+from config.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -34,20 +34,20 @@ def main():
     print_welcome_message()
     questions = [
         inquirer.List(
-            'model',
+            "model",
             message="Select the model to use",
-            choices=['gpt-3.5-turbo-0125', 'gpt-4-turbo'],
+            choices=["gpt-3.5-turbo-0125", "gpt-4"],
         ),
         inquirer.List(
-            'prompt',
+            "prompt",
             message="Select the type of prompt to use",
-            choices=['ZERO_SHOT', 'ONE_SHOT'],
-        )
+            choices=["ZERO_SHOT", "ONE_SHOT"],
+        ),
     ]
 
     answers = inquirer.prompt(questions)
-    prompt_type = answers['prompt']
-    model = answers['model']
+    prompt_type = answers["prompt"]
+    model = answers["model"]
 
     try:
         start = time.time()
@@ -61,7 +61,9 @@ def main():
         print(f"\nTotal Generation-Time: {total_minutes:01d}m {total_seconds:01d}s")
     except Exception as e:
         logger.error(f"An error occurred: {e}")
-        logger.error("Generation process failed. Please check the logs for more details.")
+        logger.error(
+            "Generation process failed. Please check the logs for more details."
+        )
 
 
 if __name__ == "__main__":
