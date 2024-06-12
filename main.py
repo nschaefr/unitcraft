@@ -36,7 +36,7 @@ def main():
         inquirer.List(
             "model",
             message="Select the model to use",
-            choices=["gpt-3.5-turbo-0125", "gpt-4"],
+            choices=["gpt-3.5-turbo-0125", "gpt-4-turbo"],
         ),
         inquirer.List(
             "prompt",

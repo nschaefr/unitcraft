@@ -70,7 +70,7 @@ def handle_error(err, test_code, test_path, attempt, stats, model):
         update_test_file(test_path, corr_class)
         return validate_test(corr_class, test_path, stats, model, attempt + 1)
 
-    logger.info(f"REPAIR ROUND {attempt}/3")
+    logger.info(f"REPAIR ROUND {attempt}/2")
     prompt_error = PROMPT_REPAIR.format(err, test_code)
     corr_class = prompt_openai(prompt_error, model, system_text_repair)
 
