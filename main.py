@@ -34,24 +34,24 @@ def main():
     print_welcome_message()
     questions = [
         inquirer.List(
-            "model",
-            message="Select the model to use",
-            choices=["gpt-3.5-turbo-0125", "gpt-4-turbo"],
-        ),
-        inquirer.List(
             "prompt",
             message="Select the type of prompt to use",
             choices=["ZERO_SHOT", "ONE_SHOT"],
+        ),
+        inquirer.List(
+            "temperature",
+            message="Select the temperature to use",
+            choices=[0, 0.3, 0.6, 0.9],
         ),
     ]
 
     answers = inquirer.prompt(questions)
     prompt_type = answers["prompt"]
-    model = answers["model"]
+    temperature = answers["temperature"]
 
     try:
         start = time.time()
-        generate_unit_tests(prompt_type, model)
+        generate_unit_tests(prompt_type, temperature)
         end = time.time()
 
         total_time_seconds = end - start

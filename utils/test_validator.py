@@ -16,7 +16,7 @@ def extract_tests(test_code):
     return tests
 
 
-def run_maven_test(file_name, attempt, stats, tests):
+def run_maven_test(file_name):
     try:
         result = subprocess.run(
             [
@@ -30,13 +30,7 @@ def run_maven_test(file_name, attempt, stats, tests):
             text=True,
         )
         if result.returncode == 0:
-            if attempt == 1:
-                stats.succ_classes += 1
-                stats.total_tests += len(tests)
-            else:
-                stats.succ_rev_classes += 1
             logger.info("TEST COMPILATION SUCCESSFUL")
-            stats.succ_tests += len(tests)
             return True, None
         else:
             err = result.stdout.strip()
@@ -46,44 +40,38 @@ def run_maven_test(file_name, attempt, stats, tests):
         return False, str(e)
 
 
-def handle_error(err, test_code, test_path, attempt, stats, model):
+def handle_error(err, test_code, test_path, attempt, temperature):
     from llm import prompt_openai
-
-    if attempt == 1:
-        stats.total_tests += len(extract_tests(test_code))
 
     if attempt > 2:
         if attempt > 3:
-            stats.fail_classes += 1
             logger.error("Test class still not compilable and will be deleted.")
             delete_java_file(test_path)
-            return stats
+            return 0
+
         prompt_del = PROMPT_DEL.format(err, test_code)
         logger.error("Deleting tests that causing compilation error...")
-        corr_class = prompt_openai(prompt_del, model, system_text_repair)
+        corr_class = prompt_openai(prompt_del, temperature, system_text_repair)
 
         if not extract_tests(corr_class):
             delete_java_file(test_path)
-            stats.fail_classes += 1
-            return stats
 
         update_test_file(test_path, corr_class)
-        return validate_test(corr_class, test_path, stats, model, attempt + 1)
+        return validate_test(corr_class, test_path, temperature, attempt + 1)
 
     logger.info(f"REPAIR ROUND {attempt}/2")
     prompt_error = PROMPT_REPAIR.format(err, test_code)
-    corr_class = prompt_openai(prompt_error, model, system_text_repair)
+    corr_class = prompt_openai(prompt_error, temperature, system_text_repair)
 
     update_test_file(test_path, corr_class)
-    return validate_test(corr_class, test_path, stats, model, attempt + 1)
+    return validate_test(corr_class, test_path, temperature, attempt + 1)
 
 
-def validate_test(test_code, test_path, stats, model, attempt=1):
+def validate_test(test_code, test_path, temperature, attempt=1):
     tests = extract_tests(test_code)
     file_name = os.path.basename(test_path)
     logger.info(f"Generated {file_name} with {len(tests)} tests.")
-    success, err = run_maven_test(file_name, attempt, stats, tests)
+    success, err = run_maven_test(file_name)
     if not success:
         logger.error("TEST COMPILATION FAILED")
-        stats = handle_error(err, test_code, test_path, attempt, stats, model)
-    return stats
+        handle_error(err, test_code, test_path, attempt, temperature)

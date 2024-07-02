@@ -13,11 +13,11 @@ class JavaClassExtractor:
         class_name_pattern = r"\b(class|interface)\s+([a-zA-Z_$][a-zA-Z\d_$]*)"
         method_pattern = (
             r"(public|private|protected|static|final|synchronized|abstract|native|strictfp|transient|volatile|\w+)"
-            r"\s+[\w<>,\s]+\s+"  # Rückgabetyp oder void
-            r"[a-zA-Z_]\w*"  # Methodenname
-            r"\s*\([^)]*\)"  # Parameterliste
-            r"\s*(?:throws\s+[a-zA-Z0-9_,\s]+)?"  # Throws-Klausel
-            r"\s*\{"  # Methode beginnt
+            r"\s+[\w<>,\s]+\s+"
+            r"[a-zA-Z_]\w*"
+            r"\s*\([^)]*\)"
+            r"\s*(?:throws\s+[a-zA-Z0-9_,\s]+)?"
+            r"\s*\{"
         )
 
         package_match = re.search(package_pattern, self.java_class_content)
@@ -29,9 +29,13 @@ class JavaClassExtractor:
         class_name_match = re.search(class_name_pattern, self.java_class_content)
         class_name = class_name_match.group(2) if class_name_match else None
 
-        constructor_pattern = r"public\s+" + class_name + r"\s*\(([^)]*)\)\s*\{"
-        constructor_match = re.search(constructor_pattern, self.java_class_content)
-        constructor = constructor_match.group(1) if constructor_match else None
+        constructor_pattern = (
+            r"public\s+" + re.escape(class_name) + r"\s*\(([^)]*)\)\s*\{" r"(.*?)}"
+        )
+        constructor_match = re.search(
+            constructor_pattern, self.java_class_content, re.DOTALL
+        )
+        constructor = constructor_match.group(0).strip() if constructor_match else None
 
         methods = self.extract_methods_with_content(method_pattern)
 
