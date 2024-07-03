@@ -41,7 +41,7 @@ def main():
         inquirer.List(
             "temperature",
             message="Select the temperature to use",
-            choices=[0, 0.3, 0.6, 0.9],
+            choices=[0, 0.25, 0.5, 0.75],
         ),
     ]
 

@@ -18,7 +18,7 @@ logger = logging.getLogger()
 
 
 class TestConfiguration:
-    def __init__(self, temperature=0.1, prompt_type="default"):
+    def __init__(self, temperature=0, prompt_type="default"):
         self.temperature = temperature
         self.prompt_type = prompt_type
 
@@ -34,7 +34,6 @@ def prompt_openai(prompt, temperature, system):
             temperature=temperature,
             max_tokens=4096,
         )
-        print(temperature)
         test_code = response.choices[0].message.content
         return remove_format(test_code)
     except Exception as e:
