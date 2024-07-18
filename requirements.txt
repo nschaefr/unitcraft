@@ -1,3 +1,3 @@
-python-dotenv
-openai
-inquirer
+inquirer==3.3.0
+openai==1.35.14
+python-dotenv==1.0.1
