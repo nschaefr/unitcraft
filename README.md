@@ -19,13 +19,14 @@ It is designed for the automatic generation of JUnit5 tests in Java-Maven projec
 ## Project Structure  
 The project should follow this structure and include an empty *test* folder:  
 
+```
 project
 └── src
     ├── main
     │   ├── java
     │   └── resources
     └── test
-
+```
   
 Additionally, a `.env` file must be created, where the OpenAI API key is stored as a string in a variable named `OPEN_API_KEY`.  
 
